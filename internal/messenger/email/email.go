@@ -113,9 +113,33 @@ func (e *Emailer) Push(m models.Message) error {
 	if m.Attachments != nil {
 		files = make([]smtppool.Attachment, 0, len(m.Attachments))
 		for _, f := range m.Attachments {
+			header := textproto.MIMEHeader{}
+			if f.Header != nil {
+				// Copy existing headers
+				for k, v := range f.Header {
+					header[k] = v
+				}
+			}
+
+			// Check for Content-ID
+			cid := f.Name
+			header.Set("Content-ID", cid)
+
+			// Ensure proper Content-ID format with angle brackets
+			if !strings.HasPrefix(cid, "<") {
+				cid = "<" + cid
+			}
+			if !strings.HasSuffix(cid, ">") {
+				cid = cid + ">"
+			}
+			header.Set("Content-ID", cid)
+
+			// Set Content-Disposition as inline for attachments with Content-ID
+			header.Set("Content-Disposition", "inline")
+
 			a := smtppool.Attachment{
 				Filename: f.Name,
-				Header:   f.Header,
+				Header:   header,
 				Content:  make([]byte, len(f.Content)),
 			}
 			copy(a.Content, f.Content)
